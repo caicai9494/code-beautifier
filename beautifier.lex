@@ -15,6 +15,8 @@ void all_upper(char* to, const char* src)
         src++;
     }
 } 
+
+int brace_depth;
 %}
 
 %option noyywrap
@@ -27,15 +29,33 @@ RETURN       return
 SPACE        [ ]
 SPACES       {SPACE}+
 
-%s HEADINC LIBINC
+LBRACE       "{"
+RBRACE       "}"
+STREAM       "<""<"
+
+%x MAIN LIBINC HEADINC
 
 %%
 
-{INCLUDE}{SPACES}\<	{  
+ /* if a library doesn't have an include guard, */
+ /* add an include guard, otherwise do nothing */
+
+ /* check whether include guard is in position */
+{IFNDEF} {
+    BEGIN HEADINC; 
+    printf("%s", yytext);
+}
+<HEADINC>{INCLUDE} {
+    BEGIN 0; 
+    printf("%s", yytext);
+}
+
+ /* if missing include guard, add one */
+<INITIAL>{INCLUDE}{SPACES}\< {  
     BEGIN LIBINC;
     buffer_ptr = buffer;
 }
-<LIBINC>{SPACES}\> {
+<LIBINC>\> {
     BEGIN 0;
     *buffer_ptr = '\0';
 
@@ -48,12 +68,54 @@ SPACES       {SPACE}+
     printf("#define %s%s\n", prefix, copy);
     printf("#endif\n");
 }
-
 <LIBINC>.  {
+ /* assume no overbound error */
     *buffer_ptr++ = yytext[0];
 }
 
 
+ /* return 0 -> return EXIT_SUCCESS */
+ /* return (not 0) -> return EXIT_FAILURE */
+ /* only make conversion for main function */ 
+int{SPACES}main { 
+    BEGIN MAIN; 
+    brace_depth = 0;
+    printf("%s", yytext);
+}
+
+ /* count depth of braces */
+ /* only make conversion for main function */ 
+<MAIN>{LBRACE} { 
+    brace_depth++;
+    printf("%s", yytext);
+}
+<MAIN>{RBRACE} { 
+    brace_depth--;
+    if (0 == brace_depth) {
+        BEGIN 0;
+    }  
+    printf("%s", yytext);
+}
+
+<MAIN>{RETURN}{SPACES}0 {
+    printf("return EXIT_SUCCESS");
+}
+<MAIN>{RETURN}{SPACES}-?[^0] {
+    printf("return EXIT_FAILURE");
+}
+
+ /*
+{STREAM} {
+    printf("%s", "yyy");
+}
+\"{SPACES}\<\<{SPACES} {
+    printf("match"); 
+}
+ */
+
+
+
+ /* return 0 at EOF */
 <<EOF>> { return 0; }
 
 %%

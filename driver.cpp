@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
     // cout include guard
     std::cout << "#ifndef INCLUDED_" << filename << '\n';
     std::cout << "#define INCLUDED_" << filename << '\n';
+    std::cout << '\n';
     
     yyin = fopen(argv[1], "r");
     for (;;) {
